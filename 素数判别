@@ -1,0 +1,22 @@
+bool is_sushu(int a)  //判断整数 a 是否为素数
+{
+	if (a == 2 || a == 3)  //2和3单独处理
+	{
+		return true;
+	}
+	else if (a % 6 != 1 && a % 6 != 5)  //当 a >= 5 时，不是6两侧的数不是素数
+	{
+		return false;
+	}
+	else
+	{
+		for (int i = 5; i < (int)sqrt(a); i += 6)
+		{
+			if (a%i == 0 || a % (i + 2) == 0)
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+}
