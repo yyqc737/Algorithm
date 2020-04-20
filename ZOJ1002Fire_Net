@@ -1,32 +1,30 @@
 #include <iostream>
 #include <stdio.h>
-int n, res, max;
+int n, res = 0, maxcount = 0;  //n为矩阵维度 res为最终结果 maxcount为临时变量
 char a[6][6];
 using namespace std;
-bool is_legal(int i, int j);
-void DFS(int sum);
+bool is_legal(int i, int j);  //判断a[i][j]是否合法，即是否可以放置碉堡
+void DFS();  //核心DFS算法
 int main()
 {
 	while (cin >> n && n)
 	{
-		
+		res = 0;
+		maxcount = 0;
 		for (int i = 0; i < n; i++)
 		{
-			getchar();
 			for (int j = 0; j < n; j++)
-				scanf_s("%c", &a[i][j],sizeof(a[i][j]));
+				cin>>a[i][j];
 		}
-		DFS(0);   //从第0个位置开始寻找
+		DFS();   
 		cout << res << endl;
-		res = 0;
-		max = 0;
 	}
-
+  return 0;
 }
 
-bool is_legal(int i, int j)
+bool is_legal(int i, int j)   
 {
-	for (int h = i - 1; h >= 0; h--)
+	for (int h = i - 1; h >= 0; h--)     //上
 	{
 		if (a[h][j] == 'o')
 		{
@@ -37,7 +35,7 @@ bool is_legal(int i, int j)
 			break;
 		}
 	}
-	for (int k = j - 1; j >= 0; j--)
+	for (int k = j - 1; k >= 0; k--)    //左
 	{
 		if (a[i][k] == 'o')
 		{
@@ -45,44 +43,51 @@ bool is_legal(int i, int j)
 		}
 		if (a[i][k] == 'X')
 		{
-			return true;
+			break;
+		}
+	}
+	for (int h = i + 1; h < n; h++)     //下
+	{
+		if (a[h][j] == 'o')
+		{
+			return false;
+		}
+		if (a[h][j] == 'X')
+		{
+			break;
+		}
+	}
+	for (int k = j + 1; k < n; k++)    //右
+	{
+		if (a[i][k] == 'o')
+		{
+			return false;
+		}
+		if (a[i][k] == 'X')
+		{
+			break;
 		}
 	}
 	return true;
 }
-void DFS(int sum )   //sum 为已经检查的节点总个数
+void DFS()   
 {
-	int j = sum / n;
-	int k = sum % n;
-	if (sum == n*n)
-	{
-		/*cout << "*****************************" << endl;
-		for (int i = 0; i < n; i++)
+		if (maxcount > res)
 		{
-			for (int j = 0; j < n; j++)
+			res = maxcount;
+		}
+		for (int j = 0; j < n; j++)    //元素全扫描，即穷举法
+		{
+			for (int k = 0; k < n; k++)
 			{
-				cout << a[i][j];
+				if (a[j][k] == '.' && is_legal(j, k))   //判断是否合法
+				{
+					a[j][k] = 'o';  //标记该点已经使用
+					maxcount += 1;   // 求解目标（前进一步） + 1
+					DFS();
+					a[j][k] = '.';   //清楚标记
+					maxcount -= 1;	 //求解目标（后退一步） - 1
+				}
 			}
-			cout << endl;
-		}*/
-		if (max > res)
-		{
-			res = max;			
-		}		
-		return;
-	}
-	else
-	{
-		if (a[j][k] == '.' && is_legal(j, k))
-		{
-			a[j][k] = 'o';
-			max += 1;
-			DFS(sum + 1);
-			a[j][k] = '.';
 		}
-		else
-		{
-			DFS(sum + 1);
-		}
-	}
 }
