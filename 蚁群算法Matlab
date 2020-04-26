@@ -1,0 +1,133 @@
+%%
+% C为节点坐标矩阵 n行2列
+m = 50; %蚂蚁个数
+Alpha = 1; %信息素重要程度
+Beta = 5; %启发式因子重要程度
+Rho = 0.1; %信息素蒸发系数
+NC_max = 200; %最大迭代次数
+Q = 100; %信息素增加强度系数
+% R_best 各代最佳路线
+% L_best 各代最佳路线长度
+
+%% 变量初始化
+n = size(C,1);  % 城市个数
+D = zeros(n);   %完全图的赋权邻接矩阵
+for i = 1:n
+    for j = 1:n
+        if i~= j
+            D(i,j) = sqrt((C(i,1)-C(j,1)).^2+(C(i,2)-C(j,2)).^2);
+        else
+            D(i,j) = eps;
+        end
+        D(j,i) = D(i,j);
+    end
+end
+Eta = 1./D; %启发因子，这里设为距离的倒数
+Tau = ones(n); %信息素矩阵
+Tabu = zeros(m,n); %存储并记录路径的生成
+NC = 1;  %迭代次数初始化
+R_best = zeros(NC_max,n);  %各代最佳路线
+L_best = inf.*ones(NC_max,1);  %各代最佳路线的长度
+L_ave = zeros(NC_max,1); %各代最佳路线的平均长度
+
+
+%%
+while NC<=NC_max
+    %把 m 只蚂蚁放到 n 个城市上
+    Randpos=[];%随机存取
+    for i = 1:ceil(m/n)   % ceil 向无穷大方向取整
+        Randpos = [Randpos,randperm(n)];   %把 m 个蚂蚁随机分布到 n 个城市,作为蚂蚁的起点
+    end
+    Tabu(:,1) = (Randpos(1,1:m))';  %将蚂蚁的起点导入路径存储
+    % m 只蚂蚁按概率函数选择下一座城市，完成各自的周游
+    for i = 1:m   %蚂蚁
+        for j = 2:n  %城市
+            visited = Tabu(i,1:(j-1));  %记录已访问的城市，避免重复访问
+            J = zeros(1,(n-j+1));  %记录待访问的城市
+            P = J;  %记录待访问的城市的选择概率分布
+            Jc = 1;   %待访问城市向量的下角标
+            for k = 1:n
+                if isempty(find(visited == k))  % k 节点未被访问
+                    J(Jc) = k;
+                    Jc = Jc + 1;  %下角标加一
+                end
+            end
+            %计算待选城市的概率分布:基本蚁群算法(AS)
+            for k = 1:length(P)
+                P(k) = (Tau(visited(end),J(k))^Alpha)*(Eta(visited(end),J(k))^Beta);
+            end
+             P = P / (sum(P));   %至此概率分布计算完成
+             %按概率选择下一个城市:轮盘赌算法
+             Pcum = cumsum(P); %元素概率分步累加求和
+             Select = find(Pcum>=rand);
+             to_visit = J(Select(1));
+             Tabu(i,j) = to_visit;
+        end
+    end
+    if NC >= 2      %**************************************
+        Tabu(1,:) = R_best(NC-1,:);
+    end;
+     %记录本次迭代最佳路线
+     L = zeros(m,1);  %记录本次迭代 m 个蚂蚁走的一个回合的距离
+     for i = 1 : m
+         R = Tabu(i,:);  %第 i 个蚂蚁的路径(临时变量)
+         for j = 1 : (n-1)
+             L(i) = L(i) + D(R(j),R(j+1));
+         end
+         L(i)  = L(i) + D(R(n),R(1));
+     end
+     L_best(NC) = min(L);  %记录本次迭代最佳距离
+     pos = find(L == min(L)); %找到走最佳距离是小蚂蚁
+     R_best(NC,:) = Tabu(pos(1),:);%把走最佳距离小蚂蚁的路径记录下来
+     L_ave = mean(L); %记录本次迭代后的平均距离
+     NC = NC + 1;  %迭代继续
+     
+    %更新信息素  Delta_Tau(Tabu(i,j),Tabu(i,j+1))=Delta_Tau(Tabu(i,j),Tabu(i,j+1))+Q/L(i);  
+     Delta_Tau = zeros(n);  %初始信息素为0
+     for i = 1:m
+         for j = 1:(n-1)
+             Delta_Tau(Tabu(i,j),Tabu(i,j+1)) = Delta_Tau(Tabu(i,j),Tabu(i,j+1)) + Q/L(i);
+         end
+         Delta_Tau(Tabu(i,n),Tabu(i,1)) = Delta_Tau(Tabu(i,n),Tabu(i,1)) + Q/L(i);
+     end
+    Tau = (1 - Rho).*Tau + Delta_Tau;
+    %清空路径记录表(禁忌表)
+    Tabu = zeros(m,n);
+end
+
+
+%% 输出结果
+fprintf("%s%f\n","最短距离是: ",min(L_best));
+pos = find(L_best == min(L_best));
+pos = pos(1);
+fprintf("%s\n","最短路径是:   ");
+for i = 1:n-1
+    fprintf("%d-->",R_best(pos,i));
+    if(rem(i,5)==0)
+        fprintf("\n");
+    end
+end
+fprintf("%d\n",R_best(pos,n));
+
+%% 结果可视化
+Rbest = R_best(pos,:); %最优路径
+scatter(C(:,1),C(:,2));
+hold on;
+for i = 1:(n-1)
+    plot([C(Rbest(i),1),C(Rbest(i+1),1)],[C(Rbest(i),2),C(Rbest(i+1),2)],'-b');
+    text(C(Rbest(i),1)+100,C(Rbest(i),2),num2str(Rbest(i)));
+end
+plot([C(Rbest(n),1);C(Rbest(1),1)],[C(Rbest(n),2);C(Rbest(1),2)],'-b');
+text(C(Rbest(n),1)+20,C(Rbest(n),2),num2str(Rbest(n)));
+title("AS最优路径");
+xlabel("位置横坐标");
+ylabel("位置纵坐标");
+hold off;
+
+%最短距离: 算法收敛轨迹
+plot(L_best);
+title("算法收敛轨迹");
+ylabel("距离");
+xlabel("迭代次数");
+legend("最短距离");
+
