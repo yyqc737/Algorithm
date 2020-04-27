@@ -1,0 +1,102 @@
+%% 遗传算法
+
+clc
+clear
+load sj.txt;
+x = sj(:,1:2:8);
+x = x(:); %把 x 换成一列向量
+y = sj(:,2:2:8);
+y = y(:);
+sj = [x y];
+d1 = [70,40];  %基地坐标
+sj0 = [d1;sj;d1];  %创建从基地到基地的坐标；
+% 距离矩阵d
+sj = sj0*pi/180;  %角度变弧度
+d = zeros(102);
+for i = 1:101
+    for j = (i+1):102
+        temp = cos(sj(i,1)-sj(j,1))*cos(sj(i,2))*cos(sj(j,2))+sin(sj(i,2))*sin(sj(j,2));
+        d(i,j) = 6370*acos(temp);
+    end
+end
+d=d+d';  %对称矩阵
+
+%% 参数确定
+L = 102; % 节点个数  初始点包含了 2 次 ***************
+LL=L-2;  %除两个原点外，剩余节点个数
+w = 50;  % 种群大小****************
+iter_max = 100; %繁殖迭代次数************
+Pc = 1;   %交叉率  cross
+Pv = 0.1; %变异率  variate
+J = zeros(w,L);
+%通过改良圈算法选取优良父代A
+for k = 1:w
+    c = randperm(LL)+1;   %产生这 LL 个节点的随机顺序 2 - L-1
+    c1 = [1,c,102];
+    flag = 1;  %Hamilton是否发生修改的标志，初始假设发生修改flag=1
+    while flag>0      %标志为0，即不再发生修改时退出
+        flag = 0;  %标志置0
+        for u = 2:L-2   % u=m,v=n
+            for v = u+1:L-1
+                temp = d(c1(u-1),c1(v))+d(c1(u),c1(v+1))...
+                    -d(c1(u-1),c1(u))-d(c1(v),c1(v+1));
+                if temp<0
+                    flag = 1; %若发生修改，标志置1
+                    c1(u:v) = c1(v:-1:u);
+                end
+            end
+        end
+    end
+    J(k,c1) = 1:102;    % c1(i)表示第i个城市在巡回中的顺序，为十进制编码做准备
+end
+J=J/L;
+J(:,1)=0;J(:,L)=1;
+% 至此编码完成   J为w列L行，表示J种群中w个个体的基因序列
+%% 遗传算法步骤
+rng('shuffle');  %以当前时间为随机数发生器的种子
+A=J;  %A为父代
+for k=1:iter_max
+    B=A;
+    c=randperm(w);
+    %交配产生子代B
+    for i=1:2:w  %1和2交配，2和3交配。。。
+        F=2+floor(100*rand(1));   % F: 2-102之间的一个随机数
+        temp = B(c(i),F:102);     %第c(i)个个体的F:102的基因序列
+        B(c(i+1),F:102)=B(c(i),F:102);
+        B(c(i),F:102)=temp;
+    end
+    %产生变异子代C
+    bianyi=find(rand(1,w)<Pv);  %变异的个体代号
+    if isempty(bianyi)
+        bianyi=floor(w*rand(1))+1;  %若随机数不产生变异，则强制产生一个变异个体
+    end
+    C=A(bianyi,:);  %提取变异个体基因序列
+    for j = 1:length(bianyi)
+        vargen = 2+floor(100*rand(1,3)); %产生变异基因位置
+        vargen = sort(vargen);  %排序由小到大
+        C(j,:)=C(j,[1:vargen(1)-1,vargen(2)+1:vargen(3),vargen(1):vargen(2),vargen(3)+1:L]);
+    end
+    G=[A;B;C];  %繁殖一代的种群
+    Gsize = size(G,1);  %繁殖后的个体数
+    %在父代和子代中选择优良品种作为新的父代
+    [dd,xx]=sort(G,2);  %dd为基因序列由小到大排序结果,即将待访问城市按先后顺序排列，xx为顺序调换结果跟踪
+    temp=zeros(1,Gsize);  %每个个体的目标函数值
+     for i =1:Gsize
+        for j=1:L-1 
+            temp(i) = temp(i)+d(xx(i,j),xx(i,j+1));
+        end
+     end
+     [dz,xz]=sort(temp);  %将个体的目标函数进行排序
+     A = G(xz(1:w),:);  %选取最优个体作为新的父代
+end
+path=xx(xz(1),:);
+min_length=dz(1);
+%%
+x=sj0(path,1);
+y=sj0(path,2);
+plot(x,y,'-o');
+hold on
+title("巡航轨迹图");
+text(x(1)-5,y(1)-1,"基地",'Color','r');
+plot(x(1),y(1),'r*');
+hold off
